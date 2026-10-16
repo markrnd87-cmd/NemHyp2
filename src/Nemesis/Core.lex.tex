@@ -1,0 +1,127 @@
+\documentclass{article}
+\usepackage{amsmath, amssymb, amsthm}
+
+\title{Nemesis Core: Exact Arithmetic and Isomorphism Proofs in $\mathbb{Z}[\phi] \subset \mathbb{Q}(\sqrt{5})$}
+\author{Nemesis 3D Studio / UOR Foundation}
+\date{October 2026}
+
+\begin{document}
+
+\section{The Golden Ratio Ring $\mathbb{Z}[\phi]$}
+The spatial base of the Nemesis architecture is the golden ratio $\phi = \frac{1+\sqrt{5}}{2}$, satisfying the minimal polynomial $\phi^2 - \phi - 1 = 0$, or $\phi^2 = \phi + 1$. By Binet's reduction formulation, any natural power $n \in \mathbb{N}$ reduces strictly to a linear binomial over the Fibonacci sequence:
+$$\phi^n = F_n \phi + F_{n-1}$$
+Consequently, every element of the Nemesis Square and Nemesis Hyper Matrix resides strictly within the ring of integers $\mathbb{Z}[\phi] \subset \mathbb{Q}(\sqrt{5})$.
+
+\begin{lean}
+namespace Nemesis.Core
+
+/-- An exact algebraic element $a\phi + b \in \mathbb{Z}[\phi] \subset \mathbb{Q}(\sqrt{5})$. -/
+structure GoldenInt where
+  phiCoeff : Int
+  constCoeff : Int
+  deriving Repr, DecidableEq, Inhabited
+
+namespace GoldenInt
+
+@[ext]
+theorem ext {x y : GoldenInt} (h1 : x.phiCoeff = y.phiCoeff) (h2 : x.constCoeff = y.constCoeff) : x = y := by
+  cases x; cases y; cases h1; cases h2; rfl
+
+/-- Additive identity $0\phi + 0$. -/
+def zero : GoldenInt := ⟨0, 0⟩
+
+/-- Multiplicative identity $0\phi + 1$. -/
+def one : GoldenInt := ⟨0, 1⟩
+
+/-- Fundamental generator $\phi = 1\phi + 0$. -/
+def phi : GoldenInt := ⟨1, 0⟩
+
+/-- Addition in $\mathbb{Z}[\phi]$. -/
+def add (x y : GoldenInt) : GoldenInt :=
+  ⟨x.phiCoeff + y.phiCoeff, x.constCoeff + y.constCoeff⟩
+
+/-- Subtraction in $\mathbb{Z}[\phi]$. -/
+def sub (x y : GoldenInt) : GoldenInt :=
+  ⟨x.phiCoeff - y.phiCoeff, x.constCoeff - y.constCoeff⟩
+
+/-- Negation in $\mathbb{Z}[\phi]$. -/
+def neg (x : GoldenInt) : GoldenInt :=
+  ⟨-x.phiCoeff, -x.constCoeff⟩
+
+/-- Multiplication in $\mathbb{Z}[\phi]$ reduced via $\phi^2 = \phi + 1$:
+    $(a\phi + b)(c\phi + d) = (ac + ad + bc)\phi + (ac + bd)$. -/
+def mul (x y : GoldenInt) : GoldenInt :=
+  let a := x.phiCoeff
+  let b := x.constCoeff
+  let c := y.phiCoeff
+  let d := y.constCoeff
+  ⟨a * c + a * d + b * c, a * c + b * d⟩
+
+/-- Galois conjugate $\overline{a\phi + b} = a(1 - \phi) + b = -a\phi + (a + b)$. -/
+def conjugate (x : GoldenInt) : GoldenInt :=
+  ⟨-x.phiCoeff, x.phiCoeff + x.constCoeff⟩
+
+/-- Algebraic field norm $N(a\phi + b) = (a\phi + b)(-a\phi + a + b) = b^2 + ab - a^2 \in \mathbb{Z}$. -/
+def norm (x : GoldenInt) : Int :=
+  let a := x.phiCoeff
+  let b := x.constCoeff
+  b * b + a * b - a * a
+
+instance : Zero GoldenInt := ⟨zero⟩
+instance : One GoldenInt := ⟨one⟩
+instance : Add GoldenInt := ⟨add⟩
+instance : Sub GoldenInt := ⟨sub⟩
+instance : Neg GoldenInt := ⟨neg⟩
+instance : Mul GoldenInt := ⟨mul⟩
+
+/-- Standard recursive Fibonacci pair $(F_n, F_{n-1})$ for clean inductive verification. -/
+def fibPair : Nat → Int × Int
+  | 0 => (0, 1)
+  | n + 1 =>
+    let p := fibPair n
+    (p.1 + p.2, p.1)
+
+/-- Fibonacci Power Reduction: $\phi^n = F_n \phi + F_{n-1}$. -/
+def phiPow (n : Nat) : GoldenInt :=
+  let p := fibPair n
+  ⟨p.1, p.2⟩
+
+theorem mul_one (x : GoldenInt) : mul x one = x := by
+  cases x with
+  | mk a b =>
+    simp [mul, one]
+
+theorem one_mul (x : GoldenInt) : mul one x = x := by
+  cases x with
+  | mk a b =>
+    simp [mul, one]
+
+/-- Step identity: $\phi^{n+1} = \phi^n \cdot \phi$. -/
+theorem phiPow_succ (n : Nat) : phiPow (n + 1) = mul (phiPow n) phi := by
+  unfold phiPow fibPair mul phi
+  apply ext
+  · simp [Int.mul_one, Int.mul_zero, Int.add_zero]
+  · simp [Int.mul_one, Int.mul_zero, Int.add_zero]
+
+/-- Associativity of multiplication in $\mathbb{Z}[\phi]$ proved purely in core Lean 4. -/
+theorem mul_assoc (x y z : GoldenInt) : mul (mul x y) z = mul x (mul y z) := by
+  cases x with | mk a b =>
+  cases y with | mk c d =>
+  cases z with | mk e f =>
+  unfold mul
+  apply ext <;> dsimp <;> omega
+
+/-- Fundamental Exponential Isomorphism in $\mathbb{Z}[\phi]$: $\phi^a \cdot \phi^b = \phi^{a+b}$. -/
+theorem phiPow_add (a b : Nat) : mul (phiPow a) (phiPow b) = phiPow (a + b) := by
+  induction b generalizing a with
+  | zero =>
+    change mul (phiPow a) one = phiPow (a + 0)
+    rw [Nat.add_zero, mul_one]
+  | succ b ih =>
+    rw [Nat.add_succ, phiPow_succ (a + b), ← ih a, phiPow_succ b, ← mul_assoc]
+
+end GoldenInt
+end Nemesis.Core
+\end{lean}
+
+\end{document}

@@ -1,0 +1,104 @@
+\documentclass{article}
+\usepackage{amsmath, amssymb}
+
+\title{Nemesis Registry: Kernel-Verified Conformance Oracles and Authority Bindings}
+\author{Nemesis 3D Studio / UOR Foundation}
+\date{October 2026}
+
+\begin{document}
+
+\section{Registered Conformance Oracles}
+This module binds the canonical prime magic squares cited in the Nemesis formalization report and proves their primality, distinctness, and multiplicative equilibrium in $\mathbb{Z}[\phi]$ via the Lean 4 kernel:
+\begin{enumerate}
+  \item \textbf{NEM-01 (Sayles/Ondrejka $3 \times 3$ Minimal APMS, 1918):} Distinct odd primes summing to $\mathcal{M}_A = 177$, yielding $\mathcal{M}_{\mathcal{N}} = \phi^{177} = F_{177}\phi + F_{176}$.
+  \item \textbf{NEM-02 (Allan W. Johnson Jr. $4 \times 4$ Consecutive Prime APMS):} The 16 consecutive primes from $31$ to $101$ summing to $\mathcal{M}_A = 258$, yielding $\mathcal{M}_{\mathcal{N}} = \phi^{258} = F_{258}\phi + F_{257}$.
+  \item \textbf{NEM-03 (Spectral Determinant Binomial):} Kernel verification that $\det(\mathcal{N}_{3\times 3})$ collapses into a non-zero element of $\mathbb{Z}[\phi]$ (full mathematical rank / dimensional stability).
+  \item \textbf{NEM-04 (Lee Sallows / Johnson $4 \times 4$ Minimal Prime APMS):} Smallest 16 distinct primes forming a magic square summing to $\mathcal{M}_A = 120$, yielding $\mathcal{M}_{\mathcal{N}} = \phi^{120} = F_{120}\phi + F_{119}$.
+\end{enumerate}
+
+\begin{lean}
+import Nemesis.Core
+import Nemesis.Specification
+
+namespace Nemesis.Registry
+open Nemesis.Core
+open Nemesis.Specification
+
+/- =========================================================================
+   Oracle NEM-01: Sayles / Ondrejka 3x3 Minimal APMS (M_A = 177)
+   ========================================================================= -/
+
+def sayles3x3 : Matrix2D Nat :=
+  { order := 3
+  , entries := [
+      17,  89,  71,
+      113, 59,   5,
+      47,  29, 101
+    ] }
+
+def expectedConstant3x3 : GoldenInt := GoldenInt.phiPow 177
+
+def verifySayles3x3 : Bool :=
+  isValidAPMS sayles3x3 177 &&
+  verifyMultiplicativeEquilibrium (toNemesisMatrix sayles3x3) expectedConstant3x3
+
+/-- Kernel Proof NEM-01: Sayles 3x3 is a valid APMS and satisfies multiplicative equilibrium φ^177. -/
+theorem nem01_sayles3x3_verified : verifySayles3x3 = true := by rfl
+
+/- =========================================================================
+   Oracle NEM-02: Allan W. Johnson Jr. 4x4 Consecutive Prime APMS (M_A = 258)
+   ========================================================================= -/
+
+def johnson4x4 : Matrix2D Nat :=
+  { order := 4
+  , entries := [
+      37, 83, 97,  41,
+      53, 61, 71,  73,
+      89, 67, 59,  43,
+      79, 47, 31, 101
+    ] }
+
+def expectedConstant4x4 : GoldenInt := GoldenInt.phiPow 258
+
+def verifyJohnson4x4 : Bool :=
+  isValidAPMS johnson4x4 258 &&
+  verifyMultiplicativeEquilibrium (toNemesisMatrix johnson4x4) expectedConstant4x4
+
+/-- Kernel Proof NEM-02: Johnson 4x4 is a valid consecutive-prime APMS with equilibrium φ^258. -/
+theorem nem02_johnson4x4_verified : verifyJohnson4x4 = true := by rfl
+
+/- =========================================================================
+   Oracle NEM-03: Dimensional Stability & Non-Singular Determinant in Z[φ]
+   ========================================================================= -/
+
+def sayles3x3Determinant : GoldenInt := det3x3 sayles3x3
+
+/-- Kernel Proof NEM-03: The 3x3 Nemesis Square is non-singular (full-rank conformality). -/
+theorem nem03_sayles3x3_nonsingular : (sayles3x3Determinant != GoldenInt.zero) = true := by rfl
+
+/- =========================================================================
+   Oracle NEM-04: Sallows / Johnson 4x4 Minimal Prime APMS (M_A = 120)
+   ========================================================================= -/
+
+def sallowsJohnson4x4 : Matrix2D Nat :=
+  { order := 4
+  , entries := [
+       3, 61, 19, 37,
+      43, 31,  5, 41,
+       7, 11, 73, 29,
+      67, 17, 23, 13
+    ] }
+
+def expectedConstantSallows4x4 : GoldenInt := GoldenInt.phiPow 120
+
+def verifySallows4x4 : Bool :=
+  isValidAPMS sallowsJohnson4x4 120 &&
+  verifyMultiplicativeEquilibrium (toNemesisMatrix sallowsJohnson4x4) expectedConstantSallows4x4
+
+/-- Kernel Proof NEM-04: Sallows/Johnson 4x4 is a valid APMS with equilibrium φ^120. -/
+theorem nem04_sallows4x4_verified : verifySallows4x4 = true := by rfl
+
+end Nemesis.Registry
+\end{lean}
+
+\end{document}

@@ -1,0 +1,168 @@
+\documentclass{article}
+\usepackage{amsmath, amssymb}
+
+\title{Nemesis Specification: Prime Exponent Tensors, Determinant Collapse, and Multimagic Scaling}
+\author{Nemesis 3D Studio / UOR Foundation}
+\date{October 2026}
+
+\begin{document}
+
+\section{Additive Prime Magic Structures and the Multiplicative Isomorphism}
+Let $P$ be an $n \times n$ matrix of strictly distinct prime numbers satisfying row, column, and main diagonal summation to $\mathcal{M}_A$. The Nemesis Square $\mathcal{N} = [\phi^{p_{i,j}}]$ maps $P$ into $\mathbb{Z}[\phi]^{n \times n}$ such that every orthogonal line and main diagonal multiplies to the invariant Nemesis constant:
+$$\mathcal{M}_{\mathcal{N}} = \phi^{\mathcal{M}_A} = F_{\mathcal{M}_A}\phi + F_{\mathcal{M}_A - 1}$$
+
+\begin{lean}
+import Nemesis.Core
+
+namespace Nemesis.Specification
+open Nemesis.Core
+
+/-- Trial-division primality verification for finite oracle certification. -/
+def isPrimeAux (n d : Nat) : Bool :=
+  match d with
+  | 0 => true
+  | 1 => true
+  | k + 1 =>
+    if (k + 1) * (k + 1) > n then true
+    else if n % (k + 1) == 0 then false
+    else isPrimeAux n k
+
+def isPrime (n : Nat) : Bool :=
+  if n < 2 then false
+  else isPrimeAux n (n - 1)
+
+/-- Verify that all entries in a list are strictly distinct. -/
+def allDistinct : List Nat → Bool
+  | [] => true
+  | x :: xs => !(xs.contains x) && allDistinct xs
+
+/-- Evaluate the additive sum of an exponent trace. -/
+def sumTrace (trace : List Nat) : Nat :=
+  trace.foldl (· + ·) 0
+
+/-- Evaluate the multiplicative product of a GoldenInt trace in $\mathbb{Z}[\phi]$. -/
+def evalTrace (trace : List GoldenInt) : GoldenInt :=
+  trace.foldl GoldenInt.mul GoldenInt.one
+
+/-- Generalized accumulator lemma for trace product-sum equivalence. -/
+theorem evalTrace_phiPow_aux (trace : List Nat) (acc : Nat) :
+  List.foldl GoldenInt.mul (GoldenInt.phiPow acc) (trace.map GoldenInt.phiPow) =
+    GoldenInt.phiPow (trace.foldl (· + ·) acc) := by
+  induction trace generalizing acc with
+  | nil => rfl
+  | cons hd tl ih =>
+    simp [List.map, List.foldl]
+    rw [GoldenInt.phiPow_add acc hd]
+    exact ih (acc + hd)
+
+/-- Kernel-verified theorem: The product of $\phi^{p_i}$ along any trace equals $\phi^{\sum p_i}$. -/
+theorem evalTrace_phiPow (trace : List Nat) :
+  evalTrace (trace.map GoldenInt.phiPow) = GoldenInt.phiPow (sumTrace trace) := by
+  unfold evalTrace sumTrace
+  change List.foldl GoldenInt.mul (GoldenInt.phiPow 0) (trace.map GoldenInt.phiPow) = _
+  exact evalTrace_phiPow_aux trace 0
+
+/-- LCNF/Rust-extractable 2D Matrix stored in row-major order. -/
+structure Matrix2D (α : Type) where
+  order : Nat
+  entries : List α
+  deriving Repr, DecidableEq
+
+namespace Matrix2D
+
+def get [Inhabited α] (M : Matrix2D α) (r c : Nat) : α :=
+  M.entries.getD (r * M.order + c) default
+
+def row [Inhabited α] (M : Matrix2D α) (r : Nat) : List α :=
+  (List.range M.order).map (fun c => M.get r c)
+
+def col [Inhabited α] (M : Matrix2D α) (c : Nat) : List α :=
+  (List.range M.order).map (fun r => M.get r c)
+
+def mainDiag [Inhabited α] (M : Matrix2D α) : List α :=
+  (List.range M.order).map (fun i => M.get i i)
+
+def antiDiag [Inhabited α] (M : Matrix2D α) : List α :=
+  (List.range M.order).map (fun i => M.get i (M.order - 1 - i))
+
+end Matrix2D
+
+/-- Complete validation of an Additive Prime Magic Square (APMS):
+    1. Exact $n^2$ entries
+    2. Every entry is a verified prime number
+    3. Every entry is strictly distinct
+    4. All rows, columns, and both diagonals sum to `magicConstant`. -/
+def isValidAPMS (M : Matrix2D Nat) (magicConstant : Nat) : Bool :=
+  let n := M.order
+  let sizeOk := M.entries.length == n * n
+  let primesOk := M.entries.all isPrime
+  let distinctOk := allDistinct M.entries
+  let rowsOk := (List.range n).all (fun r => sumTrace (M.row r) == magicConstant)
+  let colsOk := (List.range n).all (fun c => sumTrace (M.col c) == magicConstant)
+  let diag1Ok := sumTrace M.mainDiag == magicConstant
+  let diag2Ok := sumTrace M.antiDiag == magicConstant
+  sizeOk && primesOk && distinctOk && rowsOk && colsOk && diag1Ok && diag2Ok
+
+/-- Elevate an exponent matrix $P$ into a Nemesis Square $\mathcal{N} = [\phi^{p_{i,j}}]$. -/
+def toNemesisMatrix (P : Matrix2D Nat) : Matrix2D GoldenInt :=
+  ⟨P.order, P.entries.map GoldenInt.phiPow⟩
+
+/-- Verify multiplicative equilibrium across all rows, columns, and main diagonals in $\mathbb{Z}[\phi]$. -/
+def verifyMultiplicativeEquilibrium (N : Matrix2D GoldenInt) (expectedConstant : GoldenInt) : Bool :=
+  let n := N.order
+  let rowsOk := (List.range n).all (fun r => evalTrace (N.row r) == expectedConstant)
+  let colsOk := (List.range n).all (fun c => evalTrace (N.col c) == expectedConstant)
+  let diag1Ok := evalTrace N.mainDiag == expectedConstant
+  let diag2Ok := evalTrace N.antiDiag == expectedConstant
+  rowsOk && colsOk && diag1Ok && diag2Ok
+\end{lean}
+
+\section{Spectral Determinant Collapse and Multimagic Scaling}
+By the Leibniz determinant formula for an $n \times n$ Nemesis Square $\mathcal{N}$:
+$$\det(\mathcal{N}) = \sum_{\sigma \in S_n} \text{sgn}(\sigma) \phi^{\sum_{i=1}^n p_{i, \sigma(i)}} = A\phi + B \in \mathbb{Z}[\phi]$$
+Furthermore, raising all elements of $\mathcal{N}$ to an integer power $k$ linearly scales the exponent matrix $P \mapsto kP$, preserving multiplicative equilibrium with constant $\phi^{k \mathcal{M}_A}$. If $P$ is bimagic, squaring the prime exponents $p_{i,j} \mapsto p_{i,j}^2$ produces a secondary Nemesis Square $\mathcal{N}'$ with invariant $\phi^{\mathcal{M}_{A2}}$.
+
+\begin{lean}
+/-- Exact Leibniz determinant of a $3 \times 3$ exponent matrix evaluated directly in $\mathbb{Z}[\phi]$
+    via transversal exponent sums: $\det(\mathcal{N}) = A\phi + B$. -/
+def det3x3 (P : Matrix2D Nat) : GoldenInt :=
+  let p00 := P.get 0 0; let p01 := P.get 0 1; let p02 := P.get 0 2
+  let p10 := P.get 1 0; let p11 := P.get 1 1; let p12 := P.get 1 2
+  let p20 := P.get 2 0; let p21 := P.get 2 1; let p22 := P.get 2 2
+  let pos1 := GoldenInt.phiPow (p00 + p11 + p22)
+  let pos2 := GoldenInt.phiPow (p01 + p12 + p20)
+  let pos3 := GoldenInt.phiPow (p02 + p10 + p21)
+  let neg1 := GoldenInt.phiPow (p02 + p11 + p20)
+  let neg2 := GoldenInt.phiPow (p00 + p12 + p21)
+  let neg3 := GoldenInt.phiPow (p01 + p10 + p22)
+  (pos1 + pos2 + pos3) - (neg1 + neg2 + neg3)
+
+/-- Infinite fractal power scaling: $\mathcal{N}^k = [\phi^{k \cdot p_{i,j}}]$. -/
+def scaleExponents (P : Matrix2D Nat) (k : Nat) : Matrix2D Nat :=
+  ⟨P.order, P.entries.map (· * k)⟩
+
+/-- Bimagic exponent squaring: $\mathcal{N}' = [\phi^{p_{i,j}^2}]$. -/
+def bimagicExponents (P : Matrix2D Nat) : Matrix2D Nat :=
+  ⟨P.order, P.entries.map (fun p => p * p)⟩
+
+/-- LCNF-extractable $d$-dimensional Nemesis Hyper Matrix stored as a flat coordinate-indexed array. -/
+structure HyperMatrixND (α : Type) where
+  dimension : Nat
+  order : Nat
+  entries : List α
+  deriving Repr, DecidableEq
+
+/-- Convert a $d$-dimensional coordinate tuple $[i_1, i_2, \dots, i_d]$ into a flat linear index. -/
+def coordToFlatIndex (order : Nat) (coords : List Nat) : Nat :=
+  coords.foldl (fun acc idx => acc * order + idx) 0
+
+/-- Extract the primary $d$-space main spatial agonal $(i, i, \dots, i)$ for $0 \le i < n$. -/
+def extractPrimaryAgonal [Inhabited α] (H : HyperMatrixND α) : List α :=
+  (List.range H.order).map fun i =>
+    let coords := List.replicate H.dimension i
+    H.entries.getD (coordToFlatIndex H.order coords) default
+
+end Nemesis.Specification
+\end{lean}
+
+\end{document}

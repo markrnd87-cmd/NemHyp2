@@ -1,0 +1,26 @@
+[project]
+name = "Nemesis"
+version = "0.1.0"
+edition = "2026"
+language = "1.2"
+
+[roots]
+core = "src/Nemesis/Core.lex.tex"
+specification = "src/Nemesis/Specification.lex.tex"
+registry = "src/Nemesis/Registry.lex.tex"
+
+[compiler]
+max_heartbeats = 500000
+trust_level = 0
+export_roots = [
+  "Nemesis.Core.GoldenInt.phiPow",
+  "Nemesis.Core.GoldenInt.mul",
+  "Nemesis.Core.GoldenInt.norm",
+  "Nemesis.Specification.evalTrace",
+  "Nemesis.Specification.det3x3",
+  "Nemesis.Specification.scaleExponents",
+  "Nemesis.Specification.bimagicExponents",
+  "Nemesis.Registry.verifySayles3x3",
+  "Nemesis.Registry.verifyJohnson4x4",
+  "Nemesis.Registry.sayles3x3Determinant"
+]

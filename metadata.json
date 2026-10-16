@@ -1,0 +1,6 @@
+{
+  "name": "Nemesis Hypermatrix Engine",
+  "description": "Normative UOR Foundation PrismPM v0.3.0 & LexLean 1.2 verified implementation, mathematical engine, and multidimensional visualizer for Nemesis Squares in Z[φ].",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
